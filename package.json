@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Vowly WhatsApp sender — Vercel serverless function (Twilio)"
+  "description": "Vowly API — WhatsApp (Twilio) + Email (SMTP) serverless functions on Vercel",
+  "dependencies": {
+    "nodemailer": "6.9.16"
+  }
 }

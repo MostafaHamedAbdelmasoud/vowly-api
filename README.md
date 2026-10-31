@@ -1,57 +1,57 @@
-# Vowly API — WhatsApp sender
+# Vowly API (Vercel)
 
-دالة Serverless على Vercel بتبعت رسائل واتساب عن طريق Twilio. المفاتيح متخبّية في Environment Variables (مش في الكود).
+دالتين Serverless على Vercel. المفاتيح كلها في Environment Variables (مش في الكود).
 
-## الملفات
-- `api/send.js` — الدالة (Endpoint: `POST /api/send`)
-- `.env.example` — شكل المتغيرات المطلوبة
-- `client-example.js` — مثال استدعاء من React
+| Endpoint | الملف | الوظيفة |
+|----------|------|---------|
+| `POST /api/send` | `api/send.js` | إرسال رسالة واتساب عن طريق Twilio |
+| `POST /api/send-mail` | `api/send-mail.js` | إرسال إيميل RSVP / تهنئة عن طريق SMTP (نسخة من send-mail.php) |
 
-## 1) ارفعه على GitHub
-```bash
-cd vowly-api
-git init -b main
-git add .
-git commit -m "Vowly WhatsApp API"
-git remote add origin https://github.com/<USERNAME>/vowly-api.git
-git push -u origin main
-```
+---
 
-## 2) استورده في Vercel
-- Vercel → **Add New → Project** → اختار repo `vowly-api`.
-- Framework Preset: **Other** (مفيش build).
-- متضغطش Deploy لحد ما تحط المتغيرات (الخطوة الجاية).
+## 1) النشر
+- ارفع الفولدر على repo جديد على GitHub.
+- Vercel → **Add New → Project** → اختار الـ repo → Framework: **Other**.
+- حط الـ Environment Variables (تحت) → **Deploy**.
+- Vercel هيثبّت `nodemailer` تلقائياً (موجود في package.json).
+- القوالب في `templates/` بتترفع مع `api/send-mail.js` (متظبطة في `vercel.json`).
 
-## 3) حط الـ Environment Variables
-Vercel → Project → **Settings → Environment Variables**:
+## 2) Environment Variables
+شوف `.env.example`. باختصار:
 
-| Key | Value |
-|-----|-------|
-| `TWILIO_ACCOUNT_SID` | من Twilio Console (بيبدأ بـ AC) |
-| `TWILIO_AUTH_TOKEN` | من Twilio Console |
-| `TWILIO_WHATSAPP_FROM` | `whatsapp:+201043237379` |
-| `TWILIO_TEMPLATE_SID` | SID بتاع التمبلت المعتمد (بيبدأ بـ HX) |
+**واتساب:** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, `TWILIO_TEMPLATE_SID`
 
-بعدها اعمل **Deploy**.
+**إيميل:** `ALLOWED_ORIGINS`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_TO`, `MAIL_ENCRYPTION_KEY`
 
-## 4) جرّبه
-```bash
-curl -X POST https://<project>.vercel.app/api/send \
-  -H "Content-Type: application/json" \
-  -d '{"to":"+201012345678","variables":{"1":"أحمد"}}'
-```
-الرد المتوقّع: `{"success":true,"sid":"SM...","status":"queued"}`
+---
 
-## طريقة الاستدعاء
+## `POST /api/send` (واتساب)
 ```json
-POST /api/send
-{ "to": "+201012345678", "variables": { "1": "أحمد", "2": "20 ديسمبر" } }
+{ "to": "+201114994726", "variables": { "1": "أحمد" } }
 ```
-- `to` — رقم الضيف بصيغة E.164.
-- `variables` — متغيرات التمبلت ({{1}}, {{2}} ...).
-- بدل التمبلت تقدر تبعت `"text": "..."` (بس جوّه نافذة الـ 24 ساعة من آخر رد للعميل).
+يرجّع `{ "success": true, "sid": "...", "status": "..." }`.
 
-## ملاحظات
-- أول رسالة لأي عميل **لازم تمبلت معتمد** (مينفعش نص حر).
-- التمبلت بتعمله من Twilio **Content Template Builder** وتستنى Meta تعتمده.
-- الـ CORS مسموح لـ `vowlyeg.com` و `www.vowlyeg.com` و localhost — عدّل القائمة في أول `api/send.js` لو احتجت.
+## `POST /api/send-mail` (إيميل)
+نفس عقد `send-mail.php`:
+```json
+{
+  "type": "rsvp",            // أو "wish"
+  "name": "أحمد",
+  "attending": "yes",        // rsvp: yes/no
+  "guests": 2,               // rsvp
+  "text": "ألف مبروك",       // wish: نص التهنئة
+  "email": "guest@x.com",    // اختياري (Reply-To)
+  "template": "default",     // اسم فولدر في templates/
+  "elapsed": 5000,           // ms من فتح الصفحة (لازم ≥ 2000)
+  "credentials": "<token>"   // اختياري: توكن مشفّر فيه إيميل العروسين
+}
+```
+يرجّع `{ "ok": true }` أو `{ "ok": false, "error": "..." }`.
+
+**ملاحظات مطابقة للـ PHP:**
+- CORS: المواقع في `ALLOWED_ORIGINS` بس (+ localhost).
+- مكافحة بوت: `elapsed < 2000ms` مرفوض.
+- التشفير: `credentials` = base64url(IV 12 + GCM tag 16 + ciphertext) بـ AES-256-GCM، يفك بـ `MAIL_ENCRYPTION_KEY`. لازم المفتاح يطابق مفتاح الموقع.
+- القوالب: `templates/<name>/` (email.html, email.txt, template.json) — نفس محرّك Mustache.
+
+**فرق واحد عن الـ PHP:** الـ rate limit (6/١٠دقايق) هنا **best-effort** عن طريق `/tmp` — على Vercel الـ serverless مش دايم، فلو عايز rate limit مضمون استخدم KV/Redis.
