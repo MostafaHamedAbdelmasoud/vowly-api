@@ -7,16 +7,21 @@
 //
 // المفاتيح بتتقرا من Environment Variables في Vercel — مش مكتوبة هنا إطلاقاً.
 
+// Same allow-list as send-mail.js: ALLOWED_ORIGINS in Vercel (comma-separated), plus these defaults.
 const ALLOWED_ORIGINS = [
   "https://vowlyeg.com",
   "https://www.vowlyeg.com",
   "http://localhost:3000",
   "http://localhost:5173",
+  ...(process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim().replace(/\/$/, ""))
+    .filter(Boolean),
 ];
 
 export default async function handler(req, res) {
   // ===== CORS =====
-  const origin = req.headers.origin || "";
+  const origin = (req.headers.origin || "").replace(/\/$/, "");
   if (ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
